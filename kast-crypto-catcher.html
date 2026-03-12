@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KAST Crypto Catcher</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #0a0a0b;
+    --dark: #111114;
+    --card-dark: #1a1a1f;
+    --silver: #c8c8d0;
+    --silver-light: #e8e8f0;
+    --gold: #d4af6a;
+    --gold-light: #f0cc88;
+    --red: #ff4455;
+    --green: #00e88a;
+    --blue: #4488ff;
+    --purple: #9966ff;
+  }
+
+  body {
+    background: var(--black);
+    font-family: 'Syne', sans-serif;
+    color: var(--silver-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(212,175,106,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 80% 90%, rgba(68,136,255,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+    padding: 0 16px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 18px 0 10px;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .kast-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: 0.12em;
+    color: var(--silver-light);
+  }
+
+  .kast-logo span {
+    color: var(--gold);
+  }
+
+  .tagline {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--silver);
+    opacity: 0.6;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .score-panel {
+    display: flex;
+    gap: 16px;
+  }
+
+  .score-box {
+    text-align: right;
+  }
+
+  .score-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--silver);
+    opacity: 0.5;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .score-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--gold-light);
+  }
+
+  /* ── CANVAS WRAPPER ── */
+  #canvas-wrap {
+    position: relative;
+    width: 100%;
+    border: 1px solid rgba(200,200,208,0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(212,175,106,0.08),
+      0 32px 80px rgba(0,0,0,0.6);
+    background: var(--dark);
+    margin-top: 6px;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    cursor: none;
+  }
+
+  /* ── OVERLAYS ── */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,10,11,0.92);
+    backdrop-filter: blur(6px);
+    z-index: 10;
+    gap: 18px;
+    text-align: center;
+    padding: 32px;
+  }
+
+  .overlay.hidden { display: none; }
+
+  .overlay-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .overlay-title .accent { color: var(--gold); }
+
+  .overlay-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--silver);
+    opacity: 0.6;
+    letter-spacing: 0.15em;
+    max-width: 280px;
+  }
+
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 14px 20px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--silver);
+  }
+
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 13px 36px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+    color: #111;
+    box-shadow: 0 4px 20px rgba(212,175,106,0.35);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(212,175,106,0.5);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
+
+  .final-score {
+    font-family: 'DM Mono', monospace;
+    font-size: 3rem;
+    font-weight: 500;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+
+  .final-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--silver);
+    opacity: 0.45;
+    text-transform: uppercase;
+    margin-top: -10px;
+  }
+
+  /* ── HUD BAR ── */
+  #hud {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 14px;
+  }
+
+  .lives {
+    display: flex;
+    gap: 6px;
+  }
+
+  .heart {
+    font-size: 1rem;
+    transition: opacity 0.3s;
+  }
+
+  .heart.dead { opacity: 0.15; }
+
+  .level-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    background: rgba(212,175,106,0.1);
+    border: 1px solid rgba(212,175,106,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  .combo-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.3s;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  .combo-label.active { opacity: 1; }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo-area">
+      <div>
+        <div class="kast-logo">K<span>K</span>AST</div>
+        <div class="tagline">Crypto Catcher</div>
+      </div>
+    </div>
+    <div class="score-panel">
+      <div class="score-box">
+        <div class="score-label">Best</div>
+        <div class="score-val" id="best-display">0</div>
+      </div>
+      <div class="score-box">
+        <div class="score-label">Score</div>
+        <div class="score-val" id="score-display">0</div>
+      </div>
+    </div>
+  </header>
+
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
+
+    <!-- START SCREEN -->
+    <div class="overlay" id="start-overlay">
+      <div class="overlay-title">KAST<br><span class="accent">CRYPTO</span><br>CATCHER</div>
+      <div class="overlay-sub">Move your wallet. Catch stablecoins. Dodge the scams.</div>
+      <div class="legend">
+        <div class="legend-row"><div class="legend-dot" style="background:#00e88a"></div> USDC / USDT — +10 pts</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#d4af6a"></div> SOL / BTC — +25 pts</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#9966ff"></div> KAST BONUS — +50 pts</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#ff4455"></div> SCAM COIN — lose a life</div>
+      </div>
+      <button class="btn btn-primary" id="start-btn">Start Playing</button>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div class="overlay hidden" id="gameover-overlay">
+      <div class="overlay-title"><span class="accent">GAME</span><br>OVER</div>
+      <div class="final-score" id="final-score">0</div>
+      <div class="final-label">USDC COLLECTED</div>
+      <div class="overlay-sub" id="gameover-msg">Keep stacking — every KAST transaction earns you more.</div>
+      <button class="btn btn-primary" id="restart-btn">Play Again</button>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div class="lives" id="lives"></div>
+    <div class="level-badge" id="level-badge">LEVEL 1</div>
+    <div class="combo-label" id="combo-label">3× COMBO</div>
+  </div>
+</div>
+
+<script>
+// ── SETUP ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 448, H = 600;
+canvas.width = W; canvas.height = H;
+
+const scoreDisplay = document.getElementById('score-display');
+const bestDisplay  = document.getElementById('best-display');
+const livesEl      = document.getElementById('lives');
+const levelBadge   = document.getElementById('level-badge');
+const comboLabel   = document.getElementById('combo-label');
+const startOverlay = document.getElementById('start-overlay');
+const gameoverOverlay = document.getElementById('gameover-overlay');
+const finalScore   = document.getElementById('final-score');
+const gameoverMsg  = document.getElementById('gameover-msg');
+
+// ── KAST CARD IMAGE (SVG drawn) ───────────────────────────────────────────
+// We'll draw the KAST card programmatically using the branding we see
+const CARD_W = 100, CARD_H = 62;
+
+function drawKastCard(cx, cy) {
+  ctx.save();
+  ctx.translate(cx - CARD_W/2, cy - CARD_H/2);
+  // Card body
+  let grad = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+  grad.addColorStop(0, '#2a2a2e');
+  grad.addColorStop(0.5, '#1a1a1f');
+  grad.addColorStop(1, '#0f0f13');
+  ctx.fillStyle = grad;
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, 7);
+  ctx.fill();
+  // Shine
+  let shine = ctx.createLinearGradient(0, 0, CARD_W * 0.6, CARD_H * 0.6);
+  shine.addColorStop(0, 'rgba(255,255,255,0.07)');
+  shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shine;
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, 7);
+  ctx.fill();
+  // Border
+  ctx.strokeStyle = 'rgba(200,200,210,0.18)';
+  ctx.lineWidth = 0.8;
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, 7);
+  ctx.stroke();
+  // KAST logo text
+  ctx.font = 'bold 9px Syne, sans-serif';
+  ctx.fillStyle = '#e8e8f0';
+  ctx.letterSpacing = '2px';
+  ctx.fillText('⬡⬡ KAST', 8, 16);
+  // Chip
+  ctx.fillStyle = 'rgba(212,175,106,0.4)';
+  roundRect(ctx, 8, 24, 18, 14, 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(212,175,106,0.6)';
+  ctx.lineWidth = 0.5;
+  roundRect(ctx, 8, 24, 18, 14, 2);
+  ctx.stroke();
+  // Chip lines
+  ctx.strokeStyle = 'rgba(212,175,106,0.5)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(17, 24); ctx.lineTo(17, 38); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, 31); ctx.lineTo(26, 31); ctx.stroke();
+  // VISA text
+  ctx.font = 'bold 8px Georgia, serif';
+  ctx.fillStyle = '#c8c8d0';
+  ctx.textAlign = 'right';
+  ctx.fillText('VISA', CARD_W - 8, CARD_H - 10);
+  ctx.textAlign = 'left';
+  // Platinum
+  ctx.font = '5px DM Mono, monospace';
+  ctx.fillStyle = 'rgba(200,200,210,0.4)';
+  ctx.textAlign = 'right';
+  ctx.fillText('PLATINUM', CARD_W - 8, CARD_H - 20);
+  ctx.textAlign = 'left';
+  // Card number dots
+  ctx.fillStyle = 'rgba(200,200,210,0.35)';
+  for (let g = 0; g < 4; g++) {
+    for (let d = 0; d < 4; d++) {
+      if (g === 3 && d > 1) continue;
+      ctx.beginPath();
+      ctx.arc(8 + g * 22 + d * 4, CARD_H - 16, 1.2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let state = 'idle'; // 'idle' | 'playing' | 'dead'
+let score = 0, best = 0, lives = 3, level = 1, combo = 0;
+let comboTimer = 0;
+let walletX = W / 2;
+let targetX  = W / 2;
+let coins = [];
+let particles = [];
+let frame = 0;
+let spawnRate = 90;   // frames between spawns
+let coinSpeed = 2.5;
+let lastLevel = 0;
+
+// Touch / Mouse
+let pointerActive = false;
+
+const COIN_TYPES = [
+  { label: 'USDC', color: '#00e88a', darkColor: '#00a060', pts: 10, weight: 35, emoji: '🔵' },
+  { label: 'USDT', color: '#26cfb0', darkColor: '#0d8a70', pts: 10, weight: 30, emoji: '🟢' },
+  { label: 'SOL',  color: '#d4af6a', darkColor: '#9a7020', pts: 25, weight: 15, emoji: '🟡' },
+  { label: 'BTC',  color: '#f0a030', darkColor: '#a06010', pts: 25, weight: 10, emoji: '🟠' },
+  { label: 'KAST', color: '#c8c8ff', darkColor: '#6040c0', pts: 50, weight: 5,  emoji: '⬡' },
+  { label: 'SCAM', color: '#ff4455', darkColor: '#990020', pts: -1, weight: 15, emoji: '💀' },
+];
+
+function weightedCoin() {
+  const total = COIN_TYPES.reduce((s, t) => s + t.weight, 0);
+  let r = Math.random() * total;
+  for (const t of COIN_TYPES) { r -= t.weight; if (r <= 0) return t; }
+  return COIN_TYPES[0];
+}
+
+function spawnCoin() {
+  const type = weightedCoin();
+  const r = 16;
+  coins.push({
+    x: r + Math.random() * (W - 2 * r),
+    y: -r,
+    r,
+    vy: coinSpeed + Math.random() * 1.2,
+    vx: (Math.random() - 0.5) * 0.8,
+    rot: 0,
+    rotSpeed: (Math.random() - 0.5) * 0.06,
+    type,
+    wobble: Math.random() * Math.PI * 2,
+    age: 0,
+  });
+}
+
+function spawnParticles(x, y, color, count = 12, text = null) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const speed = 2 + Math.random() * 3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color,
+      life: 1,
+      r: 2 + Math.random() * 3,
+    });
+  }
+  if (text) {
+    particles.push({ text, x, y, vy: -2, life: 1, color, isText: true });
+  }
+}
+
+// ── LIVES UI ──────────────────────────────────────────────────────────────
+function renderLives() {
+  livesEl.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const h = document.createElement('div');
+    h.className = 'heart' + (i >= lives ? ' dead' : '');
+    h.textContent = '♥';
+    livesEl.appendChild(h);
+  }
+}
+
+// ── GAME LOOP ─────────────────────────────────────────────────────────────
+function update() {
+  if (state !== 'playing') return;
+  frame++;
+
+  // Level up
+  level = 1 + Math.floor(score / 200);
+  if (level !== lastLevel) {
+    lastLevel = level;
+    coinSpeed = 2.5 + (level - 1) * 0.4;
+    spawnRate = Math.max(35, 90 - (level - 1) * 8);
+    levelBadge.textContent = `LEVEL ${level}`;
+  }
+
+  // Smooth wallet movement
+  walletX += (targetX - walletX) * 0.14;
+
+  // Spawn
+  if (frame % spawnRate === 0) spawnCoin();
+  // Extra spawns at high level
+  if (level >= 4 && frame % Math.floor(spawnRate * 1.6) === 0) spawnCoin();
+
+  // Combo timer
+  if (comboTimer > 0) {
+    comboTimer--;
+    if (comboTimer === 0) { combo = 0; comboLabel.classList.remove('active'); }
+  }
+
+  // Update coins
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const c = coins[i];
+    c.age++;
+    c.wobble += 0.04;
+    c.x += c.vx + Math.sin(c.wobble) * 0.3;
+    c.y += c.vy;
+    c.rot += c.rotSpeed;
+
+    // Off screen bottom — miss
+    if (c.y - c.r > H) {
+      coins.splice(i, 1);
+      if (c.type.label !== 'SCAM') {
+        combo = 0; comboTimer = 0; comboLabel.classList.remove('active');
+      }
+      continue;
+    }
+
+    // Collision with wallet
+    const wx = walletX, wy = H - 55;
+    const ww = CARD_W * 0.9, wh = CARD_H * 0.8;
+    if (c.x > wx - ww/2 && c.x < wx + ww/2 && c.y + c.r > wy - wh/2 && c.y - c.r < wy + wh/2) {
+      coins.splice(i, 1);
+      if (c.type.label === 'SCAM') {
+        lives = Math.max(0, lives - 1);
+        renderLives();
+        spawnParticles(c.x, c.y, '#ff4455', 16, '💀 SCAM!');
+        combo = 0; comboTimer = 0; comboLabel.classList.remove('active');
+        if (lives === 0) { endGame(); return; }
+      } else {
+        combo++;
+        comboTimer = 180;
+        const mult = combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
+        const earned = c.type.pts * mult;
+        score += earned;
+        scoreDisplay.textContent = score;
+        if (score > best) { best = score; bestDisplay.textContent = best; }
+        const txt = mult > 1 ? `+${earned} ×${mult}` : `+${earned}`;
+        spawnParticles(c.x, c.y, c.type.color, 10, txt);
+        if (combo >= 3) {
+          comboLabel.textContent = `${combo}× COMBO`;
+          comboLabel.classList.add('active');
+        }
+      }
+    }
+  }
+
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= 0.025;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    if (!p.isText) { p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.vx *= 0.97; }
+    else { p.y += p.vy; }
+  }
+}
+
+function draw() {
+  // Background
+  ctx.fillStyle = '#111114';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Draw coins
+  for (const c of coins) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+
+    // Coin body
+    let grd = ctx.createRadialGradient(-4, -4, 1, 0, 0, c.r);
+    grd.addColorStop(0, c.type.color);
+    grd.addColorStop(0.5, c.type.color);
+    grd.addColorStop(1, c.type.darkColor);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glow
+    ctx.shadowColor = c.type.color;
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = c.type.color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Label
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${c.type.label === 'SCAM' ? 8 : 7}px DM Mono, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c.type.label === 'SCAM' ? '✕' : c.type.label, 0, 0);
+    ctx.restore();
+  }
+
+  // Draw wallet (KAST card)
+  if (state === 'playing') {
+    ctx.save();
+    ctx.shadowColor = 'rgba(212,175,106,0.4)';
+    ctx.shadowBlur = 20;
+    drawKastCard(walletX, H - 55);
+    ctx.shadowBlur = 0;
+
+    // Wallet trail
+    ctx.fillStyle = 'rgba(212,175,106,0.06)';
+    for (let i = 1; i <= 5; i++) {
+      const tx = walletX - (walletX - targetX) * i * 0.1;
+      ctx.globalAlpha = 0.3 - i * 0.05;
+      // tiny dot trail
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Draw particles
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    if (p.isText) {
+      ctx.font = `bold 13px Syne, sans-serif`;
+      ctx.fillStyle = p.color;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      ctx.fillText(p.text, p.x, p.y);
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Floor highlight
+  ctx.fillStyle = 'rgba(212,175,106,0.04)';
+  ctx.fillRect(0, H - 20, W, 20);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── GAME CONTROL ──────────────────────────────────────────────────────────
+function startGame() {
+  score = 0; lives = 3; level = 1; combo = 0; comboTimer = 0;
+  frame = 0; lastLevel = 0; coins = []; particles = [];
+  walletX = W / 2; targetX = W / 2;
+  coinSpeed = 2.5; spawnRate = 90;
+  scoreDisplay.textContent = '0';
+  levelBadge.textContent = 'LEVEL 1';
+  comboLabel.classList.remove('active');
+  renderLives();
+  startOverlay.classList.add('hidden');
+  gameoverOverlay.classList.add('hidden');
+  state = 'playing';
+}
+
+function endGame() {
+  state = 'dead';
+  finalScore.textContent = score;
+  const msgs = [
+    'Keep stacking — every KAST transaction earns you more.',
+    'Stable coins win. KAST keeps it moving.',
+    'Dodge the scams. Stack the gains. That\'s KAST.',
+    `Level ${level} reached. Not bad for a crypto catcher.`,
+  ];
+  gameoverMsg.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+  gameoverOverlay.classList.remove('hidden');
+}
+
+// ── INPUT ──────────────────────────────────────────────────────────────────
+function setTarget(clientX) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  targetX = Math.max(CARD_W/2, Math.min(W - CARD_W/2, (clientX - rect.left) * scaleX));
+}
+
+canvas.addEventListener('mousemove', e => { if (state === 'playing') setTarget(e.clientX); });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (state === 'playing') setTarget(e.touches[0].clientX);
+}, { passive: false });
+
+canvas.addEventListener('click', e => {
+  if (state === 'idle') startGame();
+  else if (state === 'dead') startGame();
+});
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+renderLives();
+loop();
+</script>
+</body>
+</html>
