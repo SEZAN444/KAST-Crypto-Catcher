@@ -486,7 +486,7 @@ function weightedCoin() {
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let state = 'idle';
-let score=0, best=0, lives=3, level=1, combo=0, comboTimer=0;
+let score=0, best=0, lives=4, level=1, combo=0, comboTimer=0;
 let walletX=0, targetX=0;
 let coins=[], particles=[], frame=0;
 let spawnRate=90, coinSpeed=2.5, lastLevel=0;
@@ -528,7 +528,7 @@ function spawnCoin() {
 // ── LIVES UI ──────────────────────────────────────────────────────────────────
 function renderLives() {
   livesEl.innerHTML = '';
-  for (let i=0; i<3; i++) {
+  for (let i=0; i<4; i++) {
     const h = document.createElement('div');
     h.className = 'heart' + (i >= lives ? ' dead' : '');
     h.textContent = '♥';
@@ -539,7 +539,7 @@ function renderLives() {
 // ── GAME CONTROL ──────────────────────────────────────────────────────────────
 function startGame() {
   resizeCanvas();
-  score=0; lives=3; level=1; combo=0; comboTimer=0;
+  score=0; lives=4; level=1; combo=0; comboTimer=0;
   frame=0; lastLevel=0; coins=[]; particles=[];
   walletX = W/2; targetX = W/2;
   coinSpeed=2.5; spawnRate=90;
@@ -617,7 +617,15 @@ function update() {
 
     if (c.y - c.r > H) {
       coins.splice(i,1);
-      if (c.type.label!=='SCAM') { combo=0; comboTimer=0; comboLabel.classList.remove('active'); }
+      if (c.type.label === 'SCAM') {
+        // Scam coin escaped — no penalty, lucky!
+      } else {
+        // Missed a good coin — lose a life
+        combo=0; comboTimer=0; comboLabel.classList.remove('active');
+        lives=Math.max(0, lives-1); renderLives();
+        spawnParticles(c.x, H - 20, '#ff4455', 10, '💔 MISSED!');
+        if (lives===0) { endGame(); return; }
+      }
       continue;
     }
 
